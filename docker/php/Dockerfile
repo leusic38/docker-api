@@ -4,7 +4,7 @@ FROM php:${PHP_VERSION}-fpm-alpine
 
 ARG GID=1000
 ARG UID=1000
-ARG APCU_VERSION=5.1.12
+ARG APCU_VERSION=5.1.17
 ARG APP_ENV=prod
 ARG WITH_XDEBUG=false
 
@@ -33,7 +33,8 @@ RUN set -eux; \
 	docker-php-ext-install -j$(nproc) \
 		intl \
 		zip \
-		pdo_mysql \
+		pdo \
+		pdo_pgsql \
 	; \
 	pecl install \
 		apcu-${APCU_VERSION} \
@@ -59,8 +60,12 @@ RUN set -eux; \
 	    echo "display_errors = On" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini; \
 	    echo "xdebug.remote_enable=1" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini; \
 	fi ;
+# Set timezone
+RUN rm /etc/localtime
+RUN ln -s /usr/share/zoneinfo/Europe/Paris /etc/localtime
+RUN "date"
 
-
+RUN echo 'alias sfbc="php bin/console"' >> ~/.bashrc
 
 # Install Composer globally
 ENV COMPOSER_ALLOW_SUPERUSER 1
@@ -69,17 +74,21 @@ COPY docker/php/php.ini /usr/local/etc/php/php.ini
 
 WORKDIR ${APP_PATH}
 
-COPY symfony-api ./
+RUN set -eux; \
+    composer create-project symfony/skeleton %envSYMFONY_PROJECT_NAME%
 
 # prevent the reinstallation of vendors at every changes in the source code
 RUN set -eux; \
+    cd ./symfony-api \
 	composer install --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress --no-suggest; \
-	composer clear-cache
+	composer clear-cache; \
+	cd ..; \
 
 
 VOLUME ${APP_PATH}
 
 RUN set -eux; \
+    cd ./symfony-api; \
 	mkdir -p var/cache var/log; \
 	composer dump-autoload --classmap-authoritative --no-dev; \
 	composer run-script --no-dev post-install-cmd; \

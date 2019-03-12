@@ -4,15 +4,15 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: docker/server/Dockerfile
-    env_file: symfony-api/.env
+      dockerfile: docker/nginx/Dockerfile
+    env_file: .env
     depends_on:
       - php
     ports:
       - 8800:80
     volumes:
       - ./symfony-api:/var/www/app:rw
-      - ./docker/server/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/server/conf.d/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
     tty: true
 
   php:
@@ -21,20 +21,16 @@ services:
       dockerfile: docker/php/Dockerfile
       args:
         - WITH_XDEBUG=true
-    env_file: symfony-api/.env
+    env_file: .env
     volumes:
       - ./symfony-api:/var/www/app:rw
     tty: true
   db:
-    image: mysql:5.7
-    command: --default-authentication-plugin=mysql_native_password
-    restart: always
-    ports:
-      - 3309:3306
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_USER: symfonyapi
-      MYSQL_PASSWORD: symfonyapi
+    image: postgres:11-alpine
+      restart: always
+      environment:
+        POSTGRES_PASSWORD: root
+    env_file: .env
 
     volumes:
       - symfony_db:/var/lib/mysql:cached # Persist the database in a Docker volume.
